@@ -9,6 +9,7 @@
 
 #define BUFLEN 256
 
+// Mesaj de eroare
 void error(char *msg)
 {
 	perror(msg);
@@ -26,12 +27,14 @@ int main(int argc, char *argv[])
 	int fdmax;		//valoare maxima file descriptor din multimea read_fds
 
 	char buffer[BUFLEN];
+
+	// Usage error
 	if (argc < 4) {
 		fprintf(stderr,"Usage %s client_name server_address server_port\n", argv[0]);
 		exit(0);
 	}
 
-	//golim multimea de descriptori de citire (read_fds) si multimea tmp_fds
+	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)
 	FD_ZERO(&read_fds);
 	FD_ZERO(&tmp_fds);
 
