@@ -1,11 +1,12 @@
 #include <stdio.h>
-#include <string.h>
+#include <cstring>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <string>
 
 #define MAX_CLIENTS 5
 #define BUFLEN 256

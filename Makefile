@@ -8,10 +8,10 @@ CLT=client
 all: $(SEL_SRV) $(CLT)
 
 $(SEL_SRV):$(SEL_SRV).cpp
-	$(CC) -o $(SEL_SRV) $(LIBSOCKET) $(SEL_SRV).cpp
+	$(CC) -o $(SEL_SRV) $(LIBSOCKET) $(CCFLAGS) $(SEL_SRV).cpp
 
 $(CLT):	$(CLT).cpp
-	$(CC) -o $(CLT) $(LIBSOCKET) $(CLT).cpp
+	$(CC) -o $(CLT) $(LIBSOCKET) $(CCFLAGS) $(CLT).cpp
 
 clean:
 	rm -f *.o *~

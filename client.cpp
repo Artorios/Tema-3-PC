@@ -1,19 +1,125 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <cstring>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <string>
+#include <iostream>
+#include <sstream>
 
 #define BUFLEN 256
+
+using namespace std;
 
 // Mesaj de eroare
 void error(char *msg)
 {
 	perror(msg);
 	exit(0);
+}
+
+void split_string(string str, string& com, string& param1, string& param2)
+{
+	string token;
+	istringstream iss(str);
+	int i = 0;
+	while ( getline(iss, token, ' ') )
+	{
+		switch(i)
+		{
+		case 0:
+			com = token;
+			i++;
+			break;
+		case 1:
+			param1 = token;
+			i++;
+			break;
+		case 2:
+			param2 = token;
+			i++;
+			break;
+		default:
+			break;
+		}
+	}
+	cout << "Split-ui str : ["<<str<<"] in com: ["<<com<<"], param1: ["<<param1<<"] si param2: ["<<param2<<"]\n";
+}
+
+// Parsare comanda
+void parse_command(char *buffer)
+{
+	string comanda (buffer);
+	string com, param1, param2;
+
+	comanda = comanda.substr(0,comanda.find_last_of("\n"));
+	split_string(comanda, com, param1, param2);
+
+	// Comanda "listclients"
+	if (comanda.compare("listclients") == 0)
+	{
+		fprintf(stderr, "Am primit coomanda listclients\n");
+		return;
+	}
+
+	// Comanda "infoclient nume_client"
+	if (com.compare("infoclient") == 0)
+	{
+		fprintf(stderr, "Am primit comanda infoclient pentru ");
+		cerr << param1 << endl;
+		return;
+	}
+
+	// Comanda "message nume_client mesaj"
+	if (com.compare("message") == 0)
+	{
+		fprintf(stderr, "Am primit comanda message pentru clientul ");
+		cerr << param1 << "cu mesajul: {" << param2 << "}\n";
+		return;
+	}
+
+	// Comanda "sharefile nume_fisier"
+	if (com.compare("sharefile") == 0)
+	{
+		fprintf(stderr, "Am primit comanda sharefile pentru fisierul ");
+		cerr << param1 << "\n";
+		return;
+	}
+
+	// Comanda "unsharefile nume_fisier"
+	if (com.compare("unsharefile") == 0)
+	{
+		fprintf(stderr, "Am primit comanda unsharefile pentru fisierul ");
+		cerr << param1 << "\n";
+		return;
+	}
+
+	// Comanda "getshare nume_client"
+	if (com.compare("getshare") == 0)
+	{
+		fprintf(stderr, "Am primit comanda getshare pentru clientul ");
+		cerr << param1 << "\n";
+		return;
+	}
+
+	// Comanda "getfile nume_client nume_fisier"
+	if (com.compare("getfile") == 0)
+	{
+		fprintf(stderr, "Am primit comanda getfile pentru clientul ");
+		cerr << param1 << " si fisierul " << param2 << "\n";
+		return;
+	}
+
+	// Comanda "quit"
+	if (com.compare("quit") == 0)
+	{
+		fprintf(stderr, "Am primit comanda quit");
+		return;
+	}
+
 }
 
 int main(int argc, char *argv[])
@@ -54,6 +160,8 @@ int main(int argc, char *argv[])
 		//citesc de la tastatura
 		memset(buffer, 0 , BUFLEN);
 		fgets(buffer, BUFLEN-1, stdin);
+
+		parse_command(buffer);
 
 		//trimit mesaj la server
 		n = send(sockfd,buffer,strlen(buffer), 0);
