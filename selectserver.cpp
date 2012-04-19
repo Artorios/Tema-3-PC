@@ -30,7 +30,7 @@ void parse_command(char *buffer)
 		return;
 	}
 
-	fprintf(stderr, "Wrong command. Usage: \"status\" or \"quit\"");
+	fprintf(stderr, "Wrong command. Usage: \"status\" or \"quit\"\n");
 	return;
 }
 
@@ -74,13 +74,11 @@ int main(int argc, char *argv[])
 	FD_SET(sockfd, &read_fds);
 	fdmax = sockfd;
 
+	//adaugam stdin in multimea read_fds
+	FD_SET(fileno(stdin), &read_fds);
+
 	// main loop
 	while (1) {
-		//citesc de la tastatura
-		memset(buffer, 0 , BUFLEN);
-		fgets(buffer, BUFLEN-1, stdin);
-
-		parse_command(buffer);
 
 		tmp_fds = read_fds;
 		if (select(fdmax + 1, &tmp_fds, NULL, NULL, NULL) == -1)
@@ -89,7 +87,16 @@ int main(int argc, char *argv[])
 		for(i = 0; i <= fdmax; i++) {
 			if (FD_ISSET(i, &tmp_fds)) {
 
-				if (i == sockfd) {
+				if (i == fileno(stdin))
+				{
+							//citesc de la tastatura
+							memset(buffer, 0 , BUFLEN);
+							fgets(buffer, BUFLEN-1, stdin);
+
+							parse_command(buffer);
+				}
+
+				else if (i == sockfd) {
 					// a venit ceva pe socketul de ascultare = o noua conexiune
 					// actiunea serverului: accept()
 					clilen = sizeof(cli_addr);
