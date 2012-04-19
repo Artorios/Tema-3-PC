@@ -45,7 +45,8 @@ int main(int argc, char *argv[])
 	fd_set tmp_fds;	//multime folosita temporar
 	int fdmax;		//valoare maxima file descriptor din multimea read_fds
 
-	if (argc < 2) {
+	if (argc < 2)
+	{
 		fprintf(stderr,"Usage : %s port\n", argv[0]);
 		exit(1);
 	}
@@ -78,57 +79,69 @@ int main(int argc, char *argv[])
 	FD_SET(fileno(stdin), &read_fds);
 
 	// main loop
-	while (1) {
+	while (1)
+	{
 
 		tmp_fds = read_fds;
 		if (select(fdmax + 1, &tmp_fds, NULL, NULL, NULL) == -1)
 			error((char *)"ERROR in select");
 
-		for(i = 0; i <= fdmax; i++) {
-			if (FD_ISSET(i, &tmp_fds)) {
+		for(i = 0; i <= fdmax; i++)
+		{
+			if (FD_ISSET(i, &tmp_fds))
+			{
 
 				if (i == fileno(stdin))
 				{
-							//citesc de la tastatura
-							memset(buffer, 0 , BUFLEN);
-							fgets(buffer, BUFLEN-1, stdin);
+					// citesc de la tastatura o comandă
+					memset(buffer, 0 , BUFLEN);
+					fgets(buffer, BUFLEN-1, stdin);
 
-							parse_command(buffer);
+					parse_command(buffer);
 				}
 
-				else if (i == sockfd) {
+				else if (i == sockfd)
+				{
 					// a venit ceva pe socketul de ascultare = o noua conexiune
 					// actiunea serverului: accept()
 					clilen = sizeof(cli_addr);
-					if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *)&clilen)) == -1) {
+					if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *)&clilen)) == -1)
+					{
 						error((char *)"ERROR in accept");
 					}
-					else {
+					else
+					{
 						//adaug noul socket intors de accept() la multimea descriptorilor de citire
 						FD_SET(newsockfd, &read_fds);
-						if (newsockfd > fdmax) {
+						if (newsockfd > fdmax)
+						{
 							fdmax = newsockfd;
 						}
 					}
 					fprintf(stderr, "Noua conexiune de la %s, port %d, socket_client %d\n", inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), newsockfd);
 				}
 
-				else {
+				else
+				{
 					// am primit date pe unul din socketii cu care vorbesc cu clientii
 					//actiunea serverului: recv()
 					memset(buffer, 0, BUFLEN);
-					if ((n = recv(i, buffer, sizeof(buffer), 0)) <= 0) {
-						if (n == 0) {
+					if ((n = recv(i, buffer, sizeof(buffer), 0)) <= 0)
+					{
+						if (n == 0)
+						{
 							//conexiunea s-a inchis
 							printf("selectserver: socket %d hung up\n", i);
-						} else {
+						} else
+						{
 							error((char *)"ERROR in recv");
 						}
 						close(i);
 						FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul pe care
 					}
 
-					else { //recv intoarce >0
+					else
+					{ //recv intoarce >0
 						fprintf (stderr, "Am primit de la clientul de pe socketul %d, mesajul: %s\n", i, buffer);
 					}
 				}

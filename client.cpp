@@ -66,7 +66,7 @@ void parse_command(char *buffer)
 			fprintf(stderr, "Wrong command. Usage: listclients\n");
 			return ;
 		}
-		fprintf(stderr, "Am primit coomanda listclients\n");
+		fprintf(stderr, "Am primit comanda listclients\n");
 		return;
 	}
 
@@ -173,7 +173,8 @@ int main(int argc, char *argv[])
 	char buffer[BUFLEN];
 
 	// Usage error
-	if (argc < 4) {
+	if (argc < 4)
+	{
 		fprintf(stderr,"Usage %s client_name server_address server_port\n", argv[0]);
 		exit(0);
 	}
@@ -194,7 +195,8 @@ int main(int argc, char *argv[])
 	if (connect(sockfd,(struct sockaddr*) &serv_addr,sizeof(serv_addr)) < 0)
 		error((char *)"ERROR connecting to server");
 
-	while(1){
+	while(1)
+	{
 		//citesc de la tastatura
 		memset(buffer, 0 , BUFLEN);
 		fgets(buffer, BUFLEN-1, stdin);
