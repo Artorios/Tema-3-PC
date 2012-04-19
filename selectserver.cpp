@@ -17,6 +17,23 @@ void error(char *msg)
 	exit(1);
 }
 
+void parse_command(char *buffer)
+{
+	if (strcmp(buffer, "status\n") == 0)
+	{
+		fprintf(stderr, "Am primit comanda status\n");
+		return;
+	}
+	if (strcmp(buffer, "quit\n") == 0)
+	{
+		fprintf(stderr, "Am primit comanda quit\n");
+		return;
+	}
+
+	fprintf(stderr, "Wrong command. Usage: \"status\" or \"quit\"");
+	return;
+}
+
 int main(int argc, char *argv[])
 {
 	int sockfd, newsockfd, portno, clilen;
@@ -59,6 +76,12 @@ int main(int argc, char *argv[])
 
 	// main loop
 	while (1) {
+		//citesc de la tastatura
+		memset(buffer, 0 , BUFLEN);
+		fgets(buffer, BUFLEN-1, stdin);
+
+		parse_command(buffer);
+
 		tmp_fds = read_fds;
 		if (select(fdmax + 1, &tmp_fds, NULL, NULL, NULL) == -1)
 			error((char *)"ERROR in select");

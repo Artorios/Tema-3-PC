@@ -61,6 +61,11 @@ void parse_command(char *buffer)
 	// Comanda "listclients"
 	if (comanda.compare("listclients") == 0)
 	{
+		if (param1.compare("") != 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: listclients\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit coomanda listclients\n");
 		return;
 	}
@@ -68,6 +73,11 @@ void parse_command(char *buffer)
 	// Comanda "infoclient nume_client"
 	if (com.compare("infoclient") == 0)
 	{
+		if (param1.compare("") == 0 || param2.compare("") != 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: infoclient nume_client\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit comanda infoclient pentru ");
 		cerr << param1 << endl;
 		return;
@@ -76,6 +86,11 @@ void parse_command(char *buffer)
 	// Comanda "message nume_client mesaj"
 	if (com.compare("message") == 0)
 	{
+		if (param1.compare("") == 0 || param2.compare("") == 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: message nume_client mesaj\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit comanda message pentru clientul ");
 		cerr << param1 << "cu mesajul: {" << param2 << "}\n";
 		return;
@@ -84,6 +99,11 @@ void parse_command(char *buffer)
 	// Comanda "sharefile nume_fisier"
 	if (com.compare("sharefile") == 0)
 	{
+		if (param1.compare("") == 0 || param2.compare("") != 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: sharefile nume_fisier\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit comanda sharefile pentru fisierul ");
 		cerr << param1 << "\n";
 		return;
@@ -92,6 +112,11 @@ void parse_command(char *buffer)
 	// Comanda "unsharefile nume_fisier"
 	if (com.compare("unsharefile") == 0)
 	{
+		if (param1.compare("") == 0 || param2.compare("") != 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: unsharefile nume_fisier\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit comanda unsharefile pentru fisierul ");
 		cerr << param1 << "\n";
 		return;
@@ -100,6 +125,11 @@ void parse_command(char *buffer)
 	// Comanda "getshare nume_client"
 	if (com.compare("getshare") == 0)
 	{
+		if (param1.compare("") == 0 || param2.compare("") != 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: getshare nume_client\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit comanda getshare pentru clientul ");
 		cerr << param1 << "\n";
 		return;
@@ -108,6 +138,11 @@ void parse_command(char *buffer)
 	// Comanda "getfile nume_client nume_fisier"
 	if (com.compare("getfile") == 0)
 	{
+		if (param1.compare("") == 0 || param2.compare("") == 0)
+		{
+			fprintf(stderr, "Wrong command. Usage: getfile nume_client nume_fisier\n");
+			return ;
+		}
 		fprintf(stderr, "Am primit comanda getfile pentru clientul ");
 		cerr << param1 << " si fisierul " << param2 << "\n";
 		return;
@@ -116,9 +151,12 @@ void parse_command(char *buffer)
 	// Comanda "quit"
 	if (com.compare("quit") == 0)
 	{
-		fprintf(stderr, "Am primit comanda quit");
+		fprintf(stderr, "Am primit comanda quit\n");
 		return;
 	}
+
+	fprintf(stderr, "Wrong command. Usage: command [param1] [param2]\n");
+	return;
 
 }
 
