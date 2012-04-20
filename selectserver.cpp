@@ -7,9 +7,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string>
+#include <iostream>
 
 #define MAX_CLIENTS 5
 #define BUFLEN 256
+
+using namespace std;
 
 void error(char *msg)
 {
@@ -144,6 +147,15 @@ int main(int argc, char *argv[])
 					else
 					{ //recv intoarce >0
 						fprintf (stderr, "Am primit de la clientul de pe socketul %d, mesajul: %s\n", i, buffer);
+
+						char comanda[100];
+						char nume[100];
+						int port;
+						sscanf(buffer,"%s %*s", comanda);
+						cout << "COMANDA: " << comanda << endl;
+						sscanf(buffer, "%*s %s %d", nume, &port);
+						cout << "nume: " << nume << " port: " << port << endl;
+
 					}
 				}
 			}

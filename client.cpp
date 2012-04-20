@@ -239,13 +239,13 @@ int main(int argc, char *argv[])
 
 
 
-	fprintf(stderr, "%s's listen port number: %d\n", argv[1],ntohs(listen_addr.sin_port));
+//	fprintf(stderr, "%s's listen port number: %d\n", argv[1],ntohs(listen_addr.sin_port));
 
 
 	// Handshake cu server-ul
 	memset(buffer, 0, BUFLEN);
-	// Nume_client listen_port_lcient
-	sprintf(buffer,"%s %u", argv[1], ntohs(listen_addr.sin_port) );
+	// connect Nume_client listen_port_lcient
+	sprintf(buffer,"connect %s %d", argv[1], ntohs(listen_addr.sin_port) );
 	n = send(sockfd,buffer,strlen(buffer), 0);
 	if (n < 0)
 		 error((char *)"ERROR writing to socket");
