@@ -56,13 +56,19 @@ void split_string(string str, string& com, string& param1, string& param2)
 }
 
 // Parsare comanda
-void parse_command(char *buffer)
+void parse_command(char *buffer, char *nume)
 {
 	string comanda (buffer);
 	string com, param1, param2;
+	char bufsend[BUFLEN];
 
 	comanda = comanda.substr(0,comanda.find_last_of("\n"));
 	split_string(comanda, com, param1, param2);
+
+//	//trimit mesaj la server
+//	n = send(sockfd,buffer,strlen(buffer), 0);
+//	if (n < 0)
+//		 error((char *)"ERROR writing to socket");
 
 	// Comanda "listclients"
 	if (comanda.compare("listclients") == 0)
@@ -72,7 +78,11 @@ void parse_command(char *buffer)
 			fprintf(stderr, "Wrong command. Usage: listclients\n");
 			return ;
 		}
-		fprintf(stderr, "Am primit comanda listclients\n");
+
+		memset(bufsend, 0, BUFLEN);
+
+
+		fprintf(stderr, "client: Am primit comanda listclients\n");
 		return;
 	}
 
@@ -172,8 +182,8 @@ void parse_command(char *buffer)
 
 int main(int argc, char *argv[])
 {
-	int sockfd, i, n;
-	struct sockaddr_in serv_addr, listen_addr;
+	int sockfd, newsockfd, i, n, accept_len;
+	struct sockaddr_in serv_addr, listen_addr, accept_addr;
 
 	fd_set read_fds;	//multimea de citire folosita in select()
 	fd_set tmp_fds;		//multime folosita temporar
@@ -201,9 +211,13 @@ int main(int argc, char *argv[])
 	if (connect(sockfd,(struct sockaddr*) &serv_addr,sizeof(serv_addr)) < 0)
 			error((char *)"ERROR connecting to server");
 
+	// Handshake cu server-ul
+	memset(buffer, 0, BUFLEN);
+
+
 	int listen_sockfd;
 
-	// Socket pentru ascultare conexiuni
+	// Socket pentru ascultare conexiuni de la alți clienți
 	listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (listen_sockfd < 0)
 		error((char *)"ERROR opening listening socket at client");
@@ -211,12 +225,19 @@ int main(int argc, char *argv[])
 	memset((char *) &listen_addr, 0, sizeof(listen_addr));
 	listen_addr.sin_family = AF_INET;
 	listen_addr.sin_port = htons(0);			// Port asignat automat
-	listen_addr.sin_addr.s_addr = INADDR_ANY;	// Adresa IP a masinii
+	listen_addr.sin_addr.s_addr = INADDR_ANY;	// Adresa IP a mașinii
 
 	if (bind(listen_sockfd, (struct sockaddr *) &listen_addr, sizeof(struct sockaddr)) < 0)
-		error((char *)"ERROR on binding");
+		error((char *)"ERROR on binding client's listen_socket");
 
 	listen(listen_sockfd, MAX_CLIENTS);
+
+	// Aflu portul pe care asculta clientul
+	socklen_t listen_len = sizeof(listen_addr);
+	if (getsockname(listen_sockfd, (struct sockaddr *) &listen_addr, &listen_len) == -1)
+		error((char *)"ERROR getting socket name");
+
+	fprintf(stderr, "%s's listen port number: %d\n", argv[1],ntohs(listen_addr.sin_port));
 
 	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)
 	FD_ZERO(&read_fds);
@@ -247,12 +268,54 @@ int main(int argc, char *argv[])
 					memset(buffer, 0 , BUFLEN);
 					fgets(buffer, BUFLEN-1, stdin);
 
-					parse_command(buffer);
+					parse_command(buffer, argv[1]);
+				}
 
-					//trimit mesaj la server
-					n = send(sockfd,buffer,strlen(buffer), 0);
-					if (n < 0)
-						 error((char *)"ERROR writing to socket");
+				else if (i == listen_sockfd)
+				{
+					// a venit ceva pe socketul de ascultare = o nouă conexiune
+					// acțiune: accept()
+					accept_len = sizeof(accept_addr);
+					if ((newsockfd = accept(listen_sockfd, (struct sockaddr *)&accept_addr, (socklen_t *)&accept_len)) == -1)
+						{
+							error((char *)"ERROR in accept");
+						}
+						else
+						{
+							//adaug noul socket intors de accept() la multimea descriptorilor de citire
+							FD_SET(newsockfd, &read_fds);
+							if (newsockfd > fdmax)
+							{
+								fdmax = newsockfd;
+							}
+						}
+						fprintf(stderr, "Noua conexiune de la %s, port %d, socket_client %d\n", inet_ntoa(accept_addr.sin_addr), ntohs(accept_addr.sin_port), newsockfd);
+
+				}
+
+				else
+				{
+					// am primit date pe unul din socketii cu care vorbesc cu clientii
+					//actiune: recv()
+					memset(buffer, 0, BUFLEN);
+					if ((n = recv(i, buffer, sizeof(buffer), 0)) <= 0)
+					{
+						if (n == 0)
+						{
+							//conexiunea s-a inchis
+							printf("client %s: socket %d hung up\n", argv[1], i);
+						} else
+						{
+							error((char *)"ERROR in recv la clientul care așteapta mesaj");
+						}
+						close(i);
+						FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul pe care l-am folosit
+					}
+
+					else
+					{ //recv intoarce >0
+						fprintf (stderr, "Am primit de la clientul de pe socketul %d, mesajul: %s\n", i, buffer);
+					}
 				}
 			}
 		}
@@ -260,7 +323,7 @@ int main(int argc, char *argv[])
 
 
 	}
+
+	close(listen_sockfd);
 	return 0;
 }
-
-
