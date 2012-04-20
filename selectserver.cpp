@@ -8,11 +8,22 @@
 #include <arpa/inet.h>
 #include <string>
 #include <iostream>
+#include <vector>
 
 #define MAX_CLIENTS 5
 #define BUFLEN 256
+#define NAMESZ 100
+#define CMDSZ 100
 
 using namespace std;
+
+int sockfd, newsockfd;
+int fdmax;		//valoare maxima file descriptor din multimea read_fds
+
+fd_set read_fds;	//multimea de citire folosita in select()
+fd_set tmp_fds;	//multime folosita temporar
+
+vector<string> clienti;
 
 void error(char *msg)
 {
@@ -30,6 +41,14 @@ void parse_command(char *buffer)
 	if (strcmp(buffer, "quit\n") == 0)
 	{
 		fprintf(stderr, "Am primit comanda quit și închid server-ul\n");
+
+		for (int i = 0; i <= fdmax; ++i)
+			if (FD_ISSET(i, &tmp_fds))
+			{
+				close(i);
+				FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul
+			}
+
 		exit(0);
 		//return;
 	}
@@ -38,16 +57,53 @@ void parse_command(char *buffer)
 	return;
 }
 
+void parse_message(char *buffer, char comanda[CMDSZ])
+{
+	char nume[NAMESZ];
+	int port;
+
+	if ( strcmp(comanda, "connect") == 0)
+	{
+		cerr << "CMD {" << comanda << "}\n";
+
+		sscanf(buffer, "%*s %s %d", nume, &port);
+		cerr << "Nume: " << nume << " port: " << port << endl;
+
+		string name(nume);
+		clienti.push_back(name);
+		cerr << "CLIENTI: ";
+		for (unsigned int i = 0; i < clienti.size(); ++i)
+			cerr << clienti[i] << " ";
+		cerr << endl;
+	}
+
+	if ( strcmp(comanda, "listclients") == 0 )
+	{
+		cerr << "CMD {" << comanda << "}\n";
+
+		sscanf(buffer, "%*s %s", nume);
+		cerr << "nume: " << nume << endl;
+
+		memset(buffer, 0, BUFLEN);
+		cerr << "CLIENTI: ";
+		for (unsigned int i = 0; i < clienti.size(); ++i)
+			cerr << clienti[i] << " ";
+		cerr << endl;
+
+//		cerr << "BUFFER-CLIENTI: " << buffer << endl;
+		//TODO put into buffer, send to client for printing
+		// and treat case for "quit", to remove client from vector
+	}
+
+
+}
+
 int main(int argc, char *argv[])
 {
-	int sockfd, newsockfd, portno, clilen;
+	int portno, clilen;
 	char buffer[BUFLEN];
 	struct sockaddr_in serv_addr, cli_addr;
 	int n, i;
-
-	fd_set read_fds;	//multimea de citire folosita in select()
-	fd_set tmp_fds;	//multime folosita temporar
-	int fdmax;		//valoare maxima file descriptor din multimea read_fds
 
 	if (argc < 2)
 	{
@@ -141,21 +197,18 @@ int main(int argc, char *argv[])
 							error((char *)"ERROR in recv");
 						}
 						close(i);
-						FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul pe care
+						FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul
 					}
 
 					else
 					{ //recv intoarce >0
 						fprintf (stderr, "Am primit de la clientul de pe socketul %d, mesajul: %s\n", i, buffer);
 
-						char comanda[100];
-						char nume[100];
-						int port;
+						char comanda[CMDSZ];
 						sscanf(buffer,"%s %*s", comanda);
 						cout << "COMANDA: " << comanda << endl;
-						sscanf(buffer, "%*s %s %d", nume, &port);
-						cout << "nume: " << nume << " port: " << port << endl;
 
+						parse_message(buffer, comanda);
 					}
 				}
 			}

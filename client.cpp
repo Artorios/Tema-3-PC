@@ -29,6 +29,13 @@ void quit_message()
 	fprintf(stderr, "Am primit comanda quit și închid clientul\n");
 }
 
+void send_verify(int n)
+{
+	if (n < 0)
+		error((char *)"ERROR writing to socket");
+}
+
+
 void split_string(string str, string& com, string& param1, string& param2)
 {
 	string token;
@@ -68,11 +75,9 @@ void parse_command(char *buffer, char *nume)
 	split_string(comanda, com, param1, param2);
 
 //	//trimit mesaj la server
-//	memset(bufsend, 0, BUFLEN);
-//	strcpy(bufsend, nume);
-	int n = send(sockfd,buffer,strlen(buffer), 0);
-	if (n < 0)
-		 error((char *)"ERROR writing to socket");
+//	int n = send(sockfd,buffer,strlen(buffer), 0);
+//	if (n < 0)
+//		 error((char *)"ERROR writing to socket");
 
 	// Comanda "listclients"
 	if (comanda.compare("listclients") == 0)
@@ -84,9 +89,12 @@ void parse_command(char *buffer, char *nume)
 		}
 
 		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "listclients %s", nume);
 
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
 
-		fprintf(stderr, "client: Am primit comanda listclients\n");
+		fprintf(stderr, "client: Am trimis comanda listclients\n");
 		return;
 	}
 
