@@ -14,6 +14,8 @@
 #define MAX_CLIENTS 5
 
 using namespace std;
+int sockfd, newsockfd;
+int listen_sockfd;
 
 // Mesaj de eroare
 void error(char *msg)
@@ -66,9 +68,11 @@ void parse_command(char *buffer, char *nume)
 	split_string(comanda, com, param1, param2);
 
 //	//trimit mesaj la server
-//	n = send(sockfd,buffer,strlen(buffer), 0);
-//	if (n < 0)
-//		 error((char *)"ERROR writing to socket");
+//	memset(bufsend, 0, BUFLEN);
+//	strcpy(bufsend, nume);
+	int n = send(sockfd,buffer,strlen(buffer), 0);
+	if (n < 0)
+		 error((char *)"ERROR writing to socket");
 
 	// Comanda "listclients"
 	if (comanda.compare("listclients") == 0)
@@ -170,6 +174,8 @@ void parse_command(char *buffer, char *nume)
 //		fprintf(stderr, "Am primit comanda quit\n");
 
 		quit_message();
+		close(sockfd);
+		close(listen_sockfd);
 		exit(0);
 		//TODO Close connections and send message to the server for closing;
 //		return;
@@ -182,7 +188,7 @@ void parse_command(char *buffer, char *nume)
 
 int main(int argc, char *argv[])
 {
-	int sockfd, newsockfd, i, n, accept_len;
+	int i, n, accept_len;
 	struct sockaddr_in serv_addr, listen_addr, accept_addr;
 
 	fd_set read_fds;	//multimea de citire folosita in select()
@@ -211,13 +217,7 @@ int main(int argc, char *argv[])
 	if (connect(sockfd,(struct sockaddr*) &serv_addr,sizeof(serv_addr)) < 0)
 			error((char *)"ERROR connecting to server");
 
-	// Handshake cu server-ul
-	memset(buffer, 0, BUFLEN);
-
-
-	int listen_sockfd;
-
-	// Socket pentru ascultare conexiuni de la alți clienți
+		// Socket pentru ascultare conexiuni de la alți clienți
 	listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (listen_sockfd < 0)
 		error((char *)"ERROR opening listening socket at client");
@@ -237,7 +237,20 @@ int main(int argc, char *argv[])
 	if (getsockname(listen_sockfd, (struct sockaddr *) &listen_addr, &listen_len) == -1)
 		error((char *)"ERROR getting socket name");
 
+
+
 	fprintf(stderr, "%s's listen port number: %d\n", argv[1],ntohs(listen_addr.sin_port));
+
+
+	// Handshake cu server-ul
+	memset(buffer, 0, BUFLEN);
+	// Nume_client listen_port_lcient
+	sprintf(buffer,"%s %u", argv[1], ntohs(listen_addr.sin_port) );
+	n = send(sockfd,buffer,strlen(buffer), 0);
+	if (n < 0)
+		 error((char *)"ERROR writing to socket");
+
+
 
 	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)
 	FD_ZERO(&read_fds);
@@ -325,5 +338,6 @@ int main(int argc, char *argv[])
 	}
 
 	close(listen_sockfd);
+	close(sockfd);
 	return 0;
 }
