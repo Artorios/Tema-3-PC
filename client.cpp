@@ -11,6 +11,7 @@
 #include <sstream>
 
 #define BUFLEN 256
+#define MAX_CLIENTS 5
 
 using namespace std;
 
@@ -19,6 +20,11 @@ void error(char *msg)
 {
 	perror(msg);
 	exit(0);
+}
+
+void quit_message()
+{
+	fprintf(stderr, "Am primit comanda quit și închid clientul\n");
 }
 
 void split_string(string str, string& com, string& param1, string& param2)
@@ -46,7 +52,7 @@ void split_string(string str, string& com, string& param1, string& param2)
 			break;
 		}
 	}
-	cout << "Split-ui str : ["<<str<<"] in com: ["<<com<<"], param1: ["<<param1<<"] si param2: ["<<param2<<"]\n";
+//	cout << "Split-ui str : ["<<str<<"] in com: ["<<com<<"], param1: ["<<param1<<"] si param2: ["<<param2<<"]\n";
 }
 
 // Parsare comanda
@@ -149,10 +155,14 @@ void parse_command(char *buffer)
 	}
 
 	// Comanda "quit"
-	if (com.compare("quit") == 0)
+	if (comanda.compare("quit") == 0)
 	{
-		fprintf(stderr, "Am primit comanda quit\n");
-		return;
+//		fprintf(stderr, "Am primit comanda quit\n");
+
+		quit_message();
+		exit(0);
+		//TODO Close connections and send message to the server for closing;
+//		return;
 	}
 
 	fprintf(stderr, "Wrong command. Usage: command [param1] [param2]\n");
@@ -162,13 +172,12 @@ void parse_command(char *buffer)
 
 int main(int argc, char *argv[])
 {
-	int sockfd, n;
-	struct sockaddr_in serv_addr;
-	struct hostent *server;
+	int sockfd, i, n;
+	struct sockaddr_in serv_addr, listen_addr;
 
 	fd_set read_fds;	//multimea de citire folosita in select()
-	fd_set tmp_fds;	//multime folosita temporar
-	int fdmax;		//valoare maxima file descriptor din multimea read_fds
+	fd_set tmp_fds;		//multime folosita temporar
+	int fdmax;			//valoare maxima file descriptor din multimea read_fds
 
 	char buffer[BUFLEN];
 
@@ -179,34 +188,76 @@ int main(int argc, char *argv[])
 		exit(0);
 	}
 
-	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)
-	FD_ZERO(&read_fds);
-	FD_ZERO(&tmp_fds);
-
+	// Socket pentru conectare la server
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0)
 		error((char *)"ERROR opening socket at client");
 
+	memset((char *) &serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
 	serv_addr.sin_port = htons(atoi(argv[3]));
 	inet_aton(argv[2], &serv_addr.sin_addr);
 
-
 	if (connect(sockfd,(struct sockaddr*) &serv_addr,sizeof(serv_addr)) < 0)
-		error((char *)"ERROR connecting to server");
+			error((char *)"ERROR connecting to server");
 
+	int listen_sockfd;
+
+	// Socket pentru ascultare conexiuni
+	listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if (listen_sockfd < 0)
+		error((char *)"ERROR opening listening socket at client");
+
+	memset((char *) &listen_addr, 0, sizeof(listen_addr));
+	listen_addr.sin_family = AF_INET;
+	listen_addr.sin_port = htons(0);			// Port asignat automat
+	listen_addr.sin_addr.s_addr = INADDR_ANY;	// Adresa IP a masinii
+
+	if (bind(listen_sockfd, (struct sockaddr *) &listen_addr, sizeof(struct sockaddr)) < 0)
+		error((char *)"ERROR on binding");
+
+	listen(listen_sockfd, MAX_CLIENTS);
+
+	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)
+	FD_ZERO(&read_fds);
+	FD_ZERO(&tmp_fds);
+
+	//adaugam noul file descriptor (socketul pe care se asculta conexiuni) in multimea read_fds
+	FD_SET(listen_sockfd, &read_fds);
+	fdmax = listen_sockfd;
+
+	//adaugam stdin in multimea read_fds
+	FD_SET(fileno(stdin), &read_fds);
+
+	//main loop
 	while(1)
 	{
-		//citesc de la tastatura
-		memset(buffer, 0 , BUFLEN);
-		fgets(buffer, BUFLEN-1, stdin);
+		tmp_fds = read_fds;
 
-		parse_command(buffer);
+		if (select(fdmax + 1, &tmp_fds, NULL, NULL, NULL) == -1)
+			error((char *)"ERROR in select");
 
-		//trimit mesaj la server
-		n = send(sockfd,buffer,strlen(buffer), 0);
-		if (n < 0)
-			 error((char *)"ERROR writing to socket");
+		for (i = 0; i <= fdmax; ++i)
+		{
+			if (FD_ISSET(i, &tmp_fds))
+			{
+				if (i == fileno(stdin) )
+				{
+					//citesc de la tastatura
+					memset(buffer, 0 , BUFLEN);
+					fgets(buffer, BUFLEN-1, stdin);
+
+					parse_command(buffer);
+
+					//trimit mesaj la server
+					n = send(sockfd,buffer,strlen(buffer), 0);
+					if (n < 0)
+						 error((char *)"ERROR writing to socket");
+				}
+			}
+		}
+
+
 
 	}
 	return 0;

@@ -26,8 +26,9 @@ void parse_command(char *buffer)
 	}
 	if (strcmp(buffer, "quit\n") == 0)
 	{
-		fprintf(stderr, "Am primit comanda quit\n");
-		return;
+		fprintf(stderr, "Am primit comanda quit și închid server-ul\n");
+		exit(0);
+		//return;
 	}
 
 	fprintf(stderr, "Wrong command. Usage: \"status\" or \"quit\"\n");
@@ -39,7 +40,7 @@ int main(int argc, char *argv[])
 	int sockfd, newsockfd, portno, clilen;
 	char buffer[BUFLEN];
 	struct sockaddr_in serv_addr, cli_addr;
-	int n, i, j;
+	int n, i;
 
 	fd_set read_fds;	//multimea de citire folosita in select()
 	fd_set tmp_fds;	//multime folosita temporar
@@ -93,7 +94,7 @@ int main(int argc, char *argv[])
 
 				if (i == fileno(stdin))
 				{
-					// citesc de la tastatura o comandă
+					// citesc de la tastatură o comandă
 					memset(buffer, 0 , BUFLEN);
 					fgets(buffer, BUFLEN-1, stdin);
 
@@ -102,7 +103,7 @@ int main(int argc, char *argv[])
 
 				else if (i == sockfd)
 				{
-					// a venit ceva pe socketul de ascultare = o noua conexiune
+					// a venit ceva pe socketul de ascultare = o nouă conexiune
 					// actiunea serverului: accept()
 					clilen = sizeof(cli_addr);
 					if ((newsockfd = accept(sockfd, (struct sockaddr *)&cli_addr, (socklen_t *)&clilen)) == -1)
