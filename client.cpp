@@ -258,7 +258,25 @@ int main(int argc, char *argv[])
 	if (n < 0)
 		 error((char *)"ERROR writing to socket");
 
-
+	memset(buffer, 0, BUFLEN);
+	if ((n = recv(sockfd, buffer, sizeof(buffer), 0)) <= 0)
+	{
+		if (n == 0)
+		{
+			//conexiunea s-a inchis
+			printf("client: socket with server hung up\n");
+		} else
+		{
+			error((char *)"ERROR in recv");
+		}
+		close(sockfd);
+		error((char *)"Problem in connection with server. Closing client...");
+	}
+	else
+	{
+		cerr << "hadnshake BUFFER{" << buffer << "}\n";
+//		if (strcmp(buffer, "disconnect\n") == 0)
+	}
 
 	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)
 	FD_ZERO(&read_fds);
@@ -298,19 +316,19 @@ int main(int argc, char *argv[])
 					// acțiune: accept()
 					accept_len = sizeof(accept_addr);
 					if ((newsockfd = accept(listen_sockfd, (struct sockaddr *)&accept_addr, (socklen_t *)&accept_len)) == -1)
+					{
+						error((char *)"ERROR in accept");
+					}
+					else
+					{
+						//adaug noul socket intors de accept() la multimea descriptorilor de citire
+						FD_SET(newsockfd, &read_fds);
+						if (newsockfd > fdmax)
 						{
-							error((char *)"ERROR in accept");
+							fdmax = newsockfd;
 						}
-						else
-						{
-							//adaug noul socket intors de accept() la multimea descriptorilor de citire
-							FD_SET(newsockfd, &read_fds);
-							if (newsockfd > fdmax)
-							{
-								fdmax = newsockfd;
-							}
-						}
-						fprintf(stderr, "Noua conexiune de la %s, port %d, socket_client %d\n", inet_ntoa(accept_addr.sin_addr), ntohs(accept_addr.sin_port), newsockfd);
+					}
+					fprintf(stderr, "Noua conexiune de la %s, port %d, socket_client %d\n", inet_ntoa(accept_addr.sin_addr), ntohs(accept_addr.sin_port), newsockfd);
 
 				}
 

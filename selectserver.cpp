@@ -97,12 +97,30 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		{
 			if (clienti[i].nume.compare(name) == 0)
 			{
-				cerr << "Un client cu numele " << name << " mai exista deja pe server\nDisconnecting...\n";
+				cerr << "Un client cu numele " << name << " mai exista deja pe server\nSending disconnect notification...\n";
+
+				// Anunt clientul ca va fi deconectat
+				memset(buffer, 0, BUFLEN);
+				sprintf(buffer, "disconnected");
+
+				int n = send(sockfd, buffer, strlen(buffer), 0);
+				if (n < 0)
+					 error((char *)"ERROR writing to socket at disconnect");
+
 				close(sock);
 				FD_CLR(sock, &read_fds); // scoatem din multimea de citire socketul
 				return;
 			}
 		}
+
+		// Daca pastrez legatura il instiintez pe client
+		memset(buffer, 0, BUFLEN);
+		sprintf(buffer, "connected");
+
+//		cerr << "SOCKFD between server and client: " << sock << endl;
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at connected");
 
 		clienti.push_back(cl);
 
@@ -129,7 +147,18 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 			cerr << clienti[i].nume << " ";
 		cerr << endl;
 
-//		cerr << "BUFFER-CLIENTI: " << buffer << endl;
+		stringstream ss (stringstream::in | stringstream::out);
+		ss << "clienti";
+		for (unsigned int i = 0; i < clienti.size(); ++i)
+			ss << " " << clienti[i].nume;
+		string buf;
+		getline (ss, buf);
+		buf.copy(buffer, buf.length());
+
+		cerr << "BUFFER-CLIENTI: " << buffer << endl;
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at listclients");
 		//TODO put into buffer, send to client for printing
 		// and treat case for "quit", to remove client from vector
 		return;
