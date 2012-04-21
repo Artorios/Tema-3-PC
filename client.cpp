@@ -66,7 +66,7 @@ void split_string(string str, string& com, string& param1, string& param2)
 //	cout << "Split-ui str : ["<<str<<"] in com: ["<<com<<"], param1: ["<<param1<<"] si param2: ["<<param2<<"]\n";
 }
 
-// Parsare comanda
+// Parsare comanda de la tastatura
 bool parse_command(char *buffer, char *nume)
 {
 	string comanda (buffer);
@@ -75,11 +75,6 @@ bool parse_command(char *buffer, char *nume)
 
 	comanda = comanda.substr(0,comanda.find_last_of("\n"));
 	split_string(comanda, com, param1, param2);
-
-//	//trimit mesaj la server
-//	int n = send(sockfd,buffer,strlen(buffer), 0);
-//	if (n < 0)
-//		 error((char *)"ERROR writing to socket");
 
 	// Comanda "listclients"
 	if (comanda.compare("listclients") == 0)
@@ -129,7 +124,8 @@ bool parse_command(char *buffer, char *nume)
 	// Comanda "message nume_client mesaj"
 	if (com.compare("message") == 0)
 	{
-		if (param1.compare("") == 0 || param2.compare("") == 0)
+		if ( (param1.compare("") == 0 || param2.compare("") == 0)
+				|| comanda.compare("message") == 0 || comanda.compare("message ") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: message nume_client mesaj\n");
 			return false;
@@ -366,6 +362,9 @@ int main(int argc, char *argv[])
 	//adaugam stdin in multimea read_fds
 	FD_SET(fileno(stdin), &read_fds);
 
+	//adaugam file descriptor-ul (socketul pe care e conectat clientul la server) in multimea read_fds
+	FD_SET(sockfd, &read_fds);
+
 	//main loop
 	while(1)
 	{
@@ -386,6 +385,37 @@ int main(int argc, char *argv[])
 
 					if ( parse_command(buffer, argv[1]) == true )
 						parse_message(sockfd);
+				}
+
+				else if (i == sockfd)
+				{
+					memset(buffer, 0, BUFLEN);
+					if ((n = recv(sockfd, buffer, sizeof(buffer), 0)) <= 0)
+					{
+						if (n == 0)
+						{
+							//conexiunea s-a inchis
+							printf("client: socket with server hung up\n");
+						} else
+						{
+							error((char *)"ERROR in recv");
+						}
+						close(sockfd);
+						error((char *)"Problem in connection with server. Closing client...");
+					}
+					else
+					{
+						// Am primit instiintare de disconnect
+						if (strncmp(buffer, "disconnected", strlen("disconnected")) == 0)
+						{
+							cout << "Client " << buffer << endl;
+							close(sockfd);
+							exit(0);
+						}
+
+						// Altfel am primit instiintare de connected
+						error((char *)"ERROR n-am primit ce trebuie de la server");
+					}
 				}
 
 				else if (i == listen_sockfd)
