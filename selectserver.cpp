@@ -74,6 +74,7 @@ void parse_command(char *buffer)
 void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_in adresa)
 {
 	char nume[NAMESZ];
+
 	int port;
 	client cl;
 
@@ -156,6 +157,59 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		buf.copy(buffer, buf.length());
 
 		cerr << "BUFFER-CLIENTI: " << buffer << endl;
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at listclients");
+
+		return;
+	}
+
+	if ( strcmp(comanda, "infoclient") == 0)
+	{
+		cerr << "CMD {" << comanda << "}\n";
+
+		char nume_client[NAMESZ];
+
+		sscanf(buffer, "%*s %s %s", nume, nume_client);
+		cerr << "client_care_cere_info: " << nume << " nume_client: " << nume_client << endl;
+
+		unsigned int i;
+		bool found = false;
+		for (i = 0; i < clienti.size(); ++i)
+			if (strcmp(nume_client, clienti[i].nume.c_str()) == 0)
+			{
+				found = true;
+				break;
+			}
+
+//		cerr << "CLIENT_DESPRE_CARE CER INFO " << clienti[i].nume << endl;
+
+		if (!found)
+		{
+			// Trimit mesaj inapoi ca nu exista clientul
+
+			memset(buffer, 0, BUFLEN);
+			sprintf(buffer, "client-inexistent");
+
+			int n = send(sock, buffer, strlen(buffer), 0);
+			if (n < 0)
+				 error((char *)"ERROR writing to socket at infoclient client-inexistent");
+
+			return;
+		}
+
+		// Trimit informatiile cerute
+		// "info-client nume_client port timp_de_la_conectare ip"
+		memset(buffer, 0, BUFLEN);
+		time_t current_time;
+		time (&current_time);
+
+		double dif = difftime(current_time, clienti[i].timp_conectare);
+		cerr << "Este conectat de " << dif << " secunde\n";
+		sprintf(buffer, "info-client %s %d %lf %s", clienti[i].nume.c_str(), clienti[i].port, dif, inet_ntoa(clienti[i].adresa.sin_addr));
+
+		cerr << "BUFFER-info-cl {" << buffer << "}\n";
+
 		int n = send(sock, buffer, strlen(buffer), 0);
 		if (n < 0)
 			 error((char *)"ERROR writing to socket at listclients");

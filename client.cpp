@@ -13,6 +13,7 @@
 #define BUFLEN 256
 #define MAX_CLIENTS 5
 #define CMDSZ 100
+#define NAMESZ 100
 
 using namespace std;
 int sockfd, newsockfd;
@@ -66,7 +67,7 @@ void split_string(string str, string& com, string& param1, string& param2)
 }
 
 // Parsare comanda
-void parse_command(char *buffer, char *nume)
+bool parse_command(char *buffer, char *nume)
 {
 	string comanda (buffer);
 	string com, param1, param2;
@@ -86,9 +87,10 @@ void parse_command(char *buffer, char *nume)
 		if (param1.compare("") != 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: listclients\n");
-			return ;
+			return false;
 		}
 
+		// Trimit un string de forma "listclients nume_client_initiator"
 		memset(bufsend, 0, BUFLEN);
 		sprintf(bufsend, "listclients %s", nume);
 
@@ -96,20 +98,32 @@ void parse_command(char *buffer, char *nume)
 		send_verify(n);
 
 		fprintf(stderr, "client: Am trimis comanda listclients catre server\n");
-		return;
+		return true;
 	}
 
 	// Comanda "infoclient nume_client"
 	if (com.compare("infoclient") == 0)
 	{
-		if (param1.compare("") == 0 || param2.compare("") != 0)
+		if ( (param1.compare("") == 0 && param2.compare("") != 0)
+				|| comanda.compare("infoclient ") == 0 || comanda.compare("infoclient") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: infoclient nume_client\n");
-			return ;
+			return false;
 		}
 		fprintf(stderr, "Am primit comanda infoclient pentru ");
 		cerr << param1 << endl;
-		return;
+
+		// Trimit un string de forma "infoclient nume_client_initiator
+		// nume_client_despre_care_se_cer_info"
+		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "infoclient %s %s", nume, param1.c_str());
+
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
+
+		cerr << "client: Am trimis comanda infoclient " << param1 << " catre server\n";
+
+		return true;
 	}
 
 	// Comanda "message nume_client mesaj"
@@ -118,11 +132,11 @@ void parse_command(char *buffer, char *nume)
 		if (param1.compare("") == 0 || param2.compare("") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: message nume_client mesaj\n");
-			return ;
+			return false;
 		}
 		fprintf(stderr, "Am primit comanda message pentru clientul ");
 		cerr << param1 << "cu mesajul: {" << param2 << "}\n";
-		return;
+		return true;
 	}
 
 	// Comanda "sharefile nume_fisier"
@@ -131,11 +145,11 @@ void parse_command(char *buffer, char *nume)
 		if (param1.compare("") == 0 || param2.compare("") != 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: sharefile nume_fisier\n");
-			return ;
+			return false;
 		}
 		fprintf(stderr, "Am primit comanda sharefile pentru fisierul ");
 		cerr << param1 << "\n";
-		return;
+		return true;
 	}
 
 	// Comanda "unsharefile nume_fisier"
@@ -144,11 +158,11 @@ void parse_command(char *buffer, char *nume)
 		if (param1.compare("") == 0 || param2.compare("") != 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: unsharefile nume_fisier\n");
-			return ;
+			return false;
 		}
 		fprintf(stderr, "Am primit comanda unsharefile pentru fisierul ");
 		cerr << param1 << "\n";
-		return;
+		return true;
 	}
 
 	// Comanda "getshare nume_client"
@@ -157,11 +171,11 @@ void parse_command(char *buffer, char *nume)
 		if (param1.compare("") == 0 || param2.compare("") != 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: getshare nume_client\n");
-			return ;
+			return false;
 		}
 		fprintf(stderr, "Am primit comanda getshare pentru clientul ");
 		cerr << param1 << "\n";
-		return;
+		return true;
 	}
 
 	// Comanda "getfile nume_client nume_fisier"
@@ -170,11 +184,11 @@ void parse_command(char *buffer, char *nume)
 		if (param1.compare("") == 0 || param2.compare("") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: getfile nume_client nume_fisier\n");
-			return ;
+			return false;
 		}
 		fprintf(stderr, "Am primit comanda getfile pentru clientul ");
 		cerr << param1 << " si fisierul " << param2 << "\n";
-		return;
+		return true;
 	}
 
 	// Comanda "quit"
@@ -187,7 +201,7 @@ void parse_command(char *buffer, char *nume)
 	}
 
 	fprintf(stderr, "Wrong command. Usage: command [param1] [param2]\n");
-	return;
+	return false;
 
 }
 
@@ -224,6 +238,25 @@ void parse_message(int sock)
 		{
 			cout << "LISTA de clienti este:\n" << buffer + strlen("clienti ") << endl;
 			return;
+		}
+
+		// Am primit client-inexistent ca reply la clientinfo
+		if (strcmp(comanda, "client-inexistent") == 0)
+		{
+			cout << "Clientul interogat nu exista\n";
+			return;
+		}
+
+		// Am primit informatiile despre clientul interogat
+		if (strcmp(comanda, "info-client") == 0)
+		{
+			char nume[NAMESZ];
+			char ip[NAMESZ];
+			int port;
+			double dif;
+			sscanf(buffer, "%*s %s %d %lf %s", nume, &port, &dif, ip);
+			cout << "Info despre " << nume << " cu portul " << port;
+			cout << " conectat de " << dif << " secunde la ip-ul " << ip << endl;
 		}
 
 //		cerr << " LISTA: " << ss.str() << endl;
@@ -351,9 +384,8 @@ int main(int argc, char *argv[])
 					memset(buffer, 0 , BUFLEN);
 					fgets(buffer, BUFLEN-1, stdin);
 
-					parse_command(buffer, argv[1]);
-
-					parse_message(sockfd);
+					if ( parse_command(buffer, argv[1]) == true )
+						parse_message(sockfd);
 				}
 
 				else if (i == listen_sockfd)
