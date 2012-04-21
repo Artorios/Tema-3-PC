@@ -260,7 +260,10 @@ int main(int argc, char *argv[])
 						if (n == 0)
 						{
 							//conexiunea s-a inchis
-							printf("selectserver: socket %d hung up\n", i);
+							//printf("selectserver: socket %d hung up\n", i);
+							for (unsigned int j = 0; j < clienti.size(); ++j)
+								if (clienti[j].srv_sockfd == i)
+									printf("selectserver: clientul %s pe socket %d a iesit\n", clienti[j].nume.c_str(), i);
 						} else
 						{
 							error((char *)"ERROR in recv");

@@ -12,6 +12,7 @@
 
 #define BUFLEN 256
 #define MAX_CLIENTS 5
+#define CMDSZ 100
 
 using namespace std;
 int sockfd, newsockfd;
@@ -94,7 +95,7 @@ void parse_command(char *buffer, char *nume)
 		int n = send(sockfd, bufsend, strlen(bufsend), 0);
 		send_verify(n);
 
-		fprintf(stderr, "client: Am trimis comanda listclients\n");
+		fprintf(stderr, "client: Am trimis comanda listclients catre server\n");
 		return;
 	}
 
@@ -192,6 +193,42 @@ void parse_command(char *buffer, char *nume)
 	fprintf(stderr, "Wrong command. Usage: command [param1] [param2]\n");
 	return;
 
+}
+
+void parse_message(int sock)
+{
+	char buffer[BUFLEN];
+	char comanda[CMDSZ];
+	int n;
+	memset(buffer, 0, BUFLEN);
+	if ((n = recv(sock, buffer, sizeof(buffer), 0)) <= 0)
+	{
+		if (n == 0)
+		{
+			//conexiunea s-a inchis
+			printf("client: when parsing recieved message, socket hung up\n");
+		} else
+		{
+			error((char *)"ERROR in recv");
+		}
+		close(sock);
+		error((char *)"Problem in connection with server. Closing client...");
+	}
+	else
+	{
+		cerr << "Recv-BUFFER " << buffer << endl;
+		stringstream ss (stringstream::in | stringstream::out);
+		string buf = buffer;
+		ss << buf;
+		ss >> comanda;
+		cerr << "Comanda: " << comanda;
+		if (strcmp(comanda, "clienti") == 0)
+		{
+			cerr << " LISTA: " << buffer + strlen("clienti ") << endl;
+		}
+
+//		cerr << " LISTA: " << ss.str() << endl;
+	}
 }
 
 int main(int argc, char *argv[])
@@ -308,6 +345,8 @@ int main(int argc, char *argv[])
 					fgets(buffer, BUFLEN-1, stdin);
 
 					parse_command(buffer, argv[1]);
+
+					parse_message(sockfd);
 				}
 
 				else if (i == listen_sockfd)
