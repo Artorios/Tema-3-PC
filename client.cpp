@@ -180,14 +180,10 @@ void parse_command(char *buffer, char *nume)
 	// Comanda "quit"
 	if (comanda.compare("quit") == 0)
 	{
-//		fprintf(stderr, "Am primit comanda quit\n");
-
 		quit_message();
 		close(sockfd);
 		close(listen_sockfd);
 		exit(0);
-		//TODO Close connections and send message to the server for closing;
-//		return;
 	}
 
 	fprintf(stderr, "Wrong command. Usage: command [param1] [param2]\n");
@@ -221,10 +217,13 @@ void parse_message(int sock)
 		string buf = buffer;
 		ss << buf;
 		ss >> comanda;
-		cerr << "Comanda: " << comanda;
+		cerr << "Comanda: " << comanda << endl;
+
+		// Am primit lista de clienti sub forma: "clienti client1 client2..."
 		if (strcmp(comanda, "clienti") == 0)
 		{
-			cerr << " LISTA: " << buffer + strlen("clienti ") << endl;
+			cout << "LISTA de clienti este:\n" << buffer + strlen("clienti ") << endl;
+			return;
 		}
 
 //		cerr << " LISTA: " << ss.str() << endl;
@@ -311,8 +310,16 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		cerr << "hadnshake BUFFER{" << buffer << "}\n";
-//		if (strcmp(buffer, "disconnect\n") == 0)
+		// Am primit instiintare de disconnect
+		if (strncmp(buffer, "disconnected", strlen("disconnected")) == 0)
+		{
+			cout << "Client " << buffer << endl;
+			close(sockfd);
+			exit(0);
+		}
+
+		// Altfel am primit instiintare de connected
+		cout << "Client " << buffer << " successfully to server\n";
 	}
 
 	//golim multimea de descriptori de citire (read_fds) si multimea (tmp_fds)

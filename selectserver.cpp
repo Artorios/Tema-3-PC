@@ -101,9 +101,9 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 
 				// Anunt clientul ca va fi deconectat
 				memset(buffer, 0, BUFLEN);
-				sprintf(buffer, "disconnected");
+				sprintf(buffer, "disconnected mai exista un client cu acest nume");
 
-				int n = send(sockfd, buffer, strlen(buffer), 0);
+				int n = send(sock, buffer, strlen(buffer), 0);
 				if (n < 0)
 					 error((char *)"ERROR writing to socket at disconnect");
 
@@ -159,8 +159,7 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		int n = send(sock, buffer, strlen(buffer), 0);
 		if (n < 0)
 			 error((char *)"ERROR writing to socket at listclients");
-		//TODO put into buffer, send to client for printing
-		// and treat case for "quit", to remove client from vector
+
 		return;
 	}
 
@@ -283,7 +282,7 @@ int main(int argc, char *argv[])
 
 						char comanda[CMDSZ];
 						sscanf(buffer,"%s %*s", comanda);
-						cout << "COMANDA: " << comanda << endl;
+						cerr << "COMANDA: " << comanda << endl;
 
 						parse_message(buffer, comanda, i, cli_addr);
 					}
