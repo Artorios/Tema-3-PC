@@ -8,7 +8,9 @@
 #include <arpa/inet.h>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <vector>
+#include <ctime>
 
 #define MAX_CLIENTS 5
 #define BUFLEN 256
@@ -17,13 +19,25 @@
 
 using namespace std;
 
+typedef struct client_
+{
+	string nume;	// Nume client
+	int port;		// Port de ascultare
+	struct sockaddr_in adresa;	// Adresa clientului
+	int srv_sockfd;		// Socket pe care e conectat la server
+	time_t timp_conectare;	// Timp conectare la server
+	vector<string> shared_files;	// Fisiere partajate
+}client;
+
+vector<client> clienti;
+
 int sockfd, newsockfd;
 int fdmax;		//valoare maxima file descriptor din multimea read_fds
 
 fd_set read_fds;	//multimea de citire folosita in select()
 fd_set tmp_fds;	//multime folosita temporar
 
-vector<string> clienti;
+//vector<string> clienti;
 
 void error(char *msg)
 {
@@ -57,10 +71,11 @@ void parse_command(char *buffer)
 	return;
 }
 
-void parse_message(char *buffer, char comanda[CMDSZ])
+void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_in adresa)
 {
 	char nume[NAMESZ];
 	int port;
+	client cl;
 
 	if ( strcmp(comanda, "connect") == 0)
 	{
@@ -70,11 +85,35 @@ void parse_message(char *buffer, char comanda[CMDSZ])
 		cerr << "Nume: " << nume << " port: " << port << endl;
 
 		string name(nume);
-		clienti.push_back(name);
+		//clienti.push_back(name);
+		cl.nume = name;
+		cl.port = port;
+		cl.adresa = adresa;
+		cl.srv_sockfd = sock;
+		cl.shared_files.clear();
+		time (&cl.timp_conectare);
+
+		for (unsigned int i = 0; i < clienti.size(); ++i)
+		{
+			if (clienti[i].nume.compare(name) == 0)
+			{
+				cerr << "Un client cu numele " << name << " mai exista deja pe server\nDisconnecting...\n";
+				close(sock);
+				FD_CLR(sock, &read_fds); // scoatem din multimea de citire socketul
+				return;
+			}
+		}
+
+		clienti.push_back(cl);
+
+//		cerr << "Client " << cl.nume << " port: " << cl.port << " creat la: " << ctime(&cl.timp_conectare) << " pe socketul " << cl.srv_sockfd ;
+//		cerr << " si adresa ip: " << inet_ntoa(cl.adresa.sin_addr) << endl;
+
 		cerr << "CLIENTI: ";
 		for (unsigned int i = 0; i < clienti.size(); ++i)
-			cerr << clienti[i] << " ";
+			cerr << clienti[i].nume << " ";
 		cerr << endl;
+		return;
 	}
 
 	if ( strcmp(comanda, "listclients") == 0 )
@@ -87,12 +126,13 @@ void parse_message(char *buffer, char comanda[CMDSZ])
 		memset(buffer, 0, BUFLEN);
 		cerr << "CLIENTI: ";
 		for (unsigned int i = 0; i < clienti.size(); ++i)
-			cerr << clienti[i] << " ";
+			cerr << clienti[i].nume << " ";
 		cerr << endl;
 
 //		cerr << "BUFFER-CLIENTI: " << buffer << endl;
 		//TODO put into buffer, send to client for printing
 		// and treat case for "quit", to remove client from vector
+		return;
 	}
 
 
@@ -196,6 +236,11 @@ int main(int argc, char *argv[])
 						{
 							error((char *)"ERROR in recv");
 						}
+						for (unsigned int j = 0; j < clienti.size(); ++j)
+						{
+							if (clienti[j].srv_sockfd == i)
+								clienti.erase(clienti.begin() + j);
+						}
 						close(i);
 						FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul
 					}
@@ -208,7 +253,7 @@ int main(int argc, char *argv[])
 						sscanf(buffer,"%s %*s", comanda);
 						cout << "COMANDA: " << comanda << endl;
 
-						parse_message(buffer, comanda);
+						parse_message(buffer, comanda, i, cli_addr);
 					}
 				}
 			}
