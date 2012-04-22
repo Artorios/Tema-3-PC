@@ -163,7 +163,8 @@ bool parse_command(char *buffer, char *nume)
 	// Comanda "sharefile nume_fisier"
 	if (com.compare("sharefile") == 0)
 	{
-		if (param1.compare("") == 0 || param2.compare("") != 0)
+		if ( (param1.compare("") == 0 && param2.compare("") != 0)
+				|| comanda.compare("sharefile") == 0 || comanda.compare("sharefile ") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: sharefile nume_fisier\n");
 			return false;
@@ -194,7 +195,7 @@ bool parse_command(char *buffer, char *nume)
 		return true;
 	}
 
-	// TODO Comanda "unsharefile nume_fisier"
+	// Comanda "unsharefile nume_fisier"
 	if (com.compare("unsharefile") == 0)
 	{
 		if (param1.compare("") == 0 || param2.compare("") != 0)
@@ -204,6 +205,16 @@ bool parse_command(char *buffer, char *nume)
 		}
 		fprintf(stderr, "Am primit comanda unsharefile pentru fisierul ");
 		cerr << param1 << "\n";
+
+		// Trimit mesaj catre server de forma
+		// "unsharefile nume_client_initiator nume_fisier"
+		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "unsharefile %s %s", nume, param1.c_str());
+
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
+
+		cerr << "client: Am trimis comanda " << bufsend << " catre server\n";
 		return true;
 	}
 
