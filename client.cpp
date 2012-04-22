@@ -198,7 +198,8 @@ bool parse_command(char *buffer, char *nume)
 	// Comanda "unsharefile nume_fisier"
 	if (com.compare("unsharefile") == 0)
 	{
-		if (param1.compare("") == 0 || param2.compare("") != 0)
+		if ( (param1.compare("") == 0 && param2.compare("") != 0)
+				|| comanda.compare("unsharefile") == 0 || comanda.compare("unsharefile ") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: unsharefile nume_fisier\n");
 			return false;
@@ -218,16 +219,27 @@ bool parse_command(char *buffer, char *nume)
 		return true;
 	}
 
-	// TODO Comanda "getshare nume_client"
+	// Comanda "getshare nume_client"
 	if (com.compare("getshare") == 0)
 	{
-		if (param1.compare("") == 0 || param2.compare("") != 0)
+		if ( (param1.compare("") == 0 && param2.compare("") != 0)
+				|| comanda.compare("getshare") == 0 || comanda.compare("getshare ") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: getshare nume_client\n");
 			return false;
 		}
 		fprintf(stderr, "Am primit comanda getshare pentru clientul ");
 		cerr << param1 << "\n";
+
+		// Trimit mesaj catre server de forma
+		// "getshare nume_client_initiator nume_client_interogat"
+		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "getshare %s %s", nume, param1.c_str());
+
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
+
+		cerr << "client: Am trimis comanda " << bufsend << " catre server\n";
 		return true;
 	}
 
@@ -326,11 +338,24 @@ void parse_message(int sock)
 		{
 			char nume_fis[BUFLEN];
 			sscanf(buffer, "%*s %s", nume_fis);
-			cout << "client: Fișierul " << " este deja share-uit\n";
+			cout << "client: Fișierul " << nume_fis << " este deja share-uit\n";
 			return;
 		}
 
-//		cerr << " LISTA: " << ss.str() << endl;
+		// Am primit getshare_NOTOK
+		if (strcmp(comanda, "getshare_NOTOK") == 0)
+		{
+			char nume_client[NAMESZ];
+			sscanf(buffer, "%*s %s", nume_client);
+			cout << "client: Clientul " << nume_client << " nu se afla pe server\n";
+			return;
+		}
+
+		// Am primit lista cu fisiere share-uite
+		if (strcmp(comanda, "shared-files") == 0)
+		{
+			cout << "Lista de fisiere este:\n" << buffer + strlen("shared-files ") << endl;
+		}
 	}
 }
 

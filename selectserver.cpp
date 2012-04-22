@@ -49,7 +49,22 @@ void parse_command(char *buffer)
 {
 	if (strcmp(buffer, "status\n") == 0)
 	{
-		fprintf(stderr, "Am primit comanda status\n");
+		fprintf(stdout, "Am primit comanda status\nAfișez informații despre clienți...\n");
+
+		for (unsigned int i = 0; i < clienti.size(); ++i)
+		{
+			time_t current_time;
+			time (&current_time);
+			double dif = difftime(current_time, clienti[i].timp_conectare);
+
+			cout << clienti[i].nume << " conectat de " << dif << " secunde de pe ip-ul ";
+			cout << inet_ntoa(clienti[i].adresa.sin_addr) << " si portul " << clienti[i].port;
+			cout << "\nLista de fisiere share-uite a sa este:\n{";
+			for (unsigned int j = 0; j < clienti[i].shared_files.size(); ++j)
+				cout << " " << clienti[i].shared_files[j];
+			cout << " }\n";
+		}
+
 		return;
 	}
 	if (strcmp(buffer, "quit\n") == 0)
@@ -344,6 +359,57 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		int n = send(sock, buffer, strlen(buffer), 0);
 		if (n < 0)
 			 error((char *)"ERROR writing to socket at unsharefile");
+
+		return;
+	}
+
+	if ( strcmp(comanda, "getshare") == 0)
+	{
+		cerr << "CMD {" << comanda << "}\n";
+		char nume_client[BUFLEN];
+
+		sscanf(buffer, "%*s %s %s", nume, nume_client);
+		cerr << "Client-care-cere-getshare: " << nume << " catre " << nume_client << endl;
+
+		unsigned int i;
+		bool found = false;
+		for (i = 0; i < clienti.size(); ++i)
+		{
+			if ( strcmp(clienti[i].nume.c_str(), nume_client) == 0 )
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if (!found)
+		{
+			cerr << "Clientul interogat nu exista\n";
+			// Trimit mesaj inapoi la client mesaj ca nu exista clientul interogat
+			memset(buffer, 0, BUFLEN);
+			sprintf(buffer, "getshare_NOTOK %s", nume_client);
+			int n = send(sock, buffer, strlen(buffer), 0);
+			if (n < 0)
+				 error((char *)"ERROR writing to socket at getshare");
+
+			return;
+		}
+
+		stringstream ss (stringstream::in | stringstream::out);
+		ss << "shared-files";
+		for (unsigned int j = 0; j < clienti[i].shared_files.size(); ++j)
+			ss << " " << clienti[i].shared_files[j];
+
+		cerr << "BUFBUFBUF: " << ss << endl;
+		string buf;
+		getline (ss, buf);
+		memset(buffer, 0, BUFLEN);
+		buf.copy(buffer, buf.length());
+
+		cerr << "BUFFER-SHARED-FILES: " << buffer << endl;
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at getshare");
 
 		return;
 	}
