@@ -3,11 +3,13 @@
 #include <cstring>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <string>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 
 #define BUFLEN 256
@@ -121,7 +123,7 @@ bool parse_command(char *buffer, char *nume)
 		return true;
 	}
 
-	// Comanda "message nume_client mesaj"
+	// TODO Comanda "message nume_client mesaj"
 	if (com.compare("message") == 0)
 	{
 		if ( (param1.compare("") == 0 || param2.compare("") == 0)
@@ -130,8 +132,31 @@ bool parse_command(char *buffer, char *nume)
 			fprintf(stderr, "Wrong command. Usage: message nume_client mesaj\n");
 			return false;
 		}
+		char mesaj[BUFLEN];
+		string buf = buffer;
+		string msgstr = buf.substr(com.size() + param1.size() + 2);
+		//cerr << "MSGSTR {" << msgstr << "}\n";
+
 		fprintf(stderr, "Am primit comanda message pentru clientul ");
-		cerr << param1 << "cu mesajul: {" << param2 << "}\n";
+//		cerr << param1 << " cu mesajul: {" << param2 << "}\n";
+
+//		cerr << "BUFFER-message {" << buffer << "}\n";
+		msgstr.copy(mesaj, msgstr.size() - 1);
+		mesaj[msgstr.size() - 1] = '\0';
+//		cerr << "MESAJ: {" << mesaj << "}\n";
+
+		// Trimit la server un string de forma
+		// "message nume_client_initiator nume_client mesaj"
+		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "message %s %s %s", nume, param1.c_str(), mesaj);
+
+//		cerr << "BUFSEND-message-to-srv {" << bufsend << "}\n";
+
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
+
+		cerr << "client: Am trimis comanda " << bufsend << " catre server\n";
+
 		return true;
 	}
 
@@ -145,10 +170,31 @@ bool parse_command(char *buffer, char *nume)
 		}
 		fprintf(stderr, "Am primit comanda sharefile pentru fisierul ");
 		cerr << param1 << "\n";
+
+		ifstream fisier;
+		fisier.open(param1.c_str());
+		if (!fisier.is_open())
+		{
+			cerr << "client: Fisierul nu poate fi deschis\n";
+			return false;
+		}
+		else
+			fisier.close();
+
+		// Trimit mesaj catre server de forma
+		// "sharefile nume_client_initiator nume_fisier"
+		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "sharefile %s %s", nume, param1.c_str());
+
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
+
+		cerr << "client: Am trimis comanda " << bufsend << " catre server\n";
+
 		return true;
 	}
 
-	// Comanda "unsharefile nume_fisier"
+	// TODO Comanda "unsharefile nume_fisier"
 	if (com.compare("unsharefile") == 0)
 	{
 		if (param1.compare("") == 0 || param2.compare("") != 0)
@@ -161,7 +207,7 @@ bool parse_command(char *buffer, char *nume)
 		return true;
 	}
 
-	// Comanda "getshare nume_client"
+	// TODO Comanda "getshare nume_client"
 	if (com.compare("getshare") == 0)
 	{
 		if (param1.compare("") == 0 || param2.compare("") != 0)
@@ -174,7 +220,7 @@ bool parse_command(char *buffer, char *nume)
 		return true;
 	}
 
-	// Comanda "getfile nume_client nume_fisier"
+	// TODO Comanda "getfile nume_client nume_fisier"
 	if (com.compare("getfile") == 0)
 	{
 		if (param1.compare("") == 0 || param2.compare("") == 0)
@@ -253,6 +299,24 @@ void parse_message(int sock)
 			sscanf(buffer, "%*s %s %d %lf %s", nume, &port, &dif, ip);
 			cout << "Info despre " << nume << " cu portul " << port;
 			cout << " conectat de " << dif << " secunde la ip-ul " << ip << endl;
+
+			return;
+		}
+
+		// Am primit shared ok
+		if (strcmp(comanda, "shared_OK") == 0)
+		{
+			cout << "client: Fișierul a fost share-uit cu succes\n";
+			return;
+		}
+
+		// Am primit shared NOTOK
+		if (strcmp(comanda, "shared_NOTOK") == 0)
+		{
+			char nume_fis[BUFLEN];
+			sscanf(buffer, "%*s %s", nume_fis);
+			cout << "client: Fișierul " << " este deja share-uit\n";
+			return;
 		}
 
 //		cerr << " LISTA: " << ss.str() << endl;

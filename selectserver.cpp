@@ -59,12 +59,18 @@ void parse_command(char *buffer)
 		for (int i = 0; i <= fdmax; ++i)
 			if (FD_ISSET(i, &tmp_fds))
 			{
+				memset(buffer, 0, BUFLEN);
+				sprintf(buffer, "disconnected a fost inchis serverul");
+
+				int n = send(i, buffer, strlen(buffer), 0);
+				if (n < 0)
+					 error((char *)"ERROR writing to socket at disconnect");
+
 				close(i);
 				FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul
 			}
 
 		exit(0);
-		//return;
 	}
 
 	fprintf(stderr, "Wrong command. Usage: \"status\" or \"quit\"\n");
@@ -213,6 +219,68 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		int n = send(sock, buffer, strlen(buffer), 0);
 		if (n < 0)
 			 error((char *)"ERROR writing to socket at listclients");
+
+		return;
+	}
+
+	if ( strcmp(comanda, "sharefile") == 0 )
+	{
+		cerr << "CMD {" << comanda << "}\n";
+		char nume_fisier[BUFLEN];
+
+		sscanf(buffer, "%*s %s %s", nume, nume_fisier);
+		cerr << "Client-care-share-uie: " << nume << " fisierul " << nume_fisier << endl;
+
+		unsigned int i;
+		bool found = false;
+		for (i = 0; i < clienti.size(); ++i)
+		{
+			if ( strcmp(clienti[i].nume.c_str(), nume) == 0 )
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if (!found)
+		{
+			error((char *)"Clientul care share-uie nu exista");
+		}
+		string nume_fis = nume_fisier;
+
+		bool found_file = false;
+		for (unsigned int j = 0; j < clienti[i].shared_files.size(); ++j)
+			if (clienti[i].shared_files[j].compare(nume_fis) == 0)
+			{
+				found_file = true;
+				break;
+			}
+
+		if (found_file)
+		{
+			cerr << "Fisierul " << nume_fis << " este deja share-uit\n";
+			memset(buffer, 0, BUFLEN);
+			sprintf(buffer, "shared_NOTOK %s", nume_fis.c_str());
+			int n = send(sock, buffer, strlen(buffer), 0);
+			if (n < 0)
+				 error((char *)"ERROR writing to socket at sharefile");
+
+			return;
+		}
+
+		clienti[i].shared_files.push_back(nume_fis);
+
+		cerr << "Shared files:";
+		for (unsigned int j = 0; j < clienti[i].shared_files.size(); ++j)
+			cerr << " " << clienti[i].shared_files[j];
+		cerr << endl;
+
+		// Trimit mesaj inapoi la client ca fisierul s-a share-uit OK
+		memset(buffer, 0, BUFLEN);
+		sprintf(buffer, "shared_OK");
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at sharefile");
 
 		return;
 	}
