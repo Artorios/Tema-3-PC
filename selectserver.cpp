@@ -72,7 +72,7 @@ void parse_command(char *buffer)
 		fprintf(stderr, "Am primit comanda quit și închid server-ul\n");
 
 		for (int i = 0; i <= fdmax; ++i)
-			if (FD_ISSET(i, &tmp_fds))
+			if ( i != fileno(stdin) && FD_ISSET(i, &tmp_fds))
 			{
 				memset(buffer, 0, BUFLEN);
 				sprintf(buffer, "disconnected a fost inchis serverul");
@@ -84,6 +84,7 @@ void parse_command(char *buffer)
 				close(i);
 				FD_CLR(i, &read_fds); // scoatem din multimea de citire socketul
 			}
+		close(sockfd);
 
 		exit(0);
 	}
@@ -233,7 +234,54 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 
 		int n = send(sock, buffer, strlen(buffer), 0);
 		if (n < 0)
-			 error((char *)"ERROR writing to socket at listclients");
+			 error((char *)"ERROR writing to socket at infoclient");
+
+		return;
+	}
+
+	if ( strcmp(comanda, "message") == 0)
+	{
+		cerr << "CMD {" << comanda << "}\n";
+		char nume_client[BUFLEN];
+
+		sscanf(buffer, "%*s %s %s", nume, nume_client);
+		cerr << "Client-care-trimite-msg: " << nume << " catre clientul " << nume_client << endl;
+
+		unsigned int i;
+		bool found = false;
+		for (i = 0; i < clienti.size(); ++i)
+		{
+			if ( strcmp(clienti[i].nume.c_str(), nume_client) == 0 )
+			{
+				found = true;
+				break;
+			}
+		}
+
+		if (!found)
+		{
+			// Clientul cautat nu exista
+			cerr << "Clientul catre care se trimite mesaj nu exista\n";
+			memset(buffer, 0, BUFLEN);
+			sprintf(buffer, "info-message-NOTOK %s nu exista pe server", nume_client);
+			cerr << "Trimit inapoi la client {" << buffer << "}\n";
+
+			int n = send(sock, buffer, strlen(buffer), 0);
+			if (n < 0)
+				 error((char *)"ERROR writing to socket at message");
+
+			return;
+		}
+
+		// Clientul cautat exista, trimit inapoi informatiile de conectare la el
+		// Mesaj de forma: "info-message nume_client_care_trimite_msg nume_client_la_care_se_trimite ip port"
+		memset(buffer, 0, BUFLEN);
+		sprintf(buffer, "info-message %s %s %s %d", nume, nume_client, inet_ntoa(clienti[i].adresa.sin_addr), clienti[i].port);
+		cerr << "Trimit inapoi la client {" << buffer << "}\n";
+
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at message");
 
 		return;
 	}

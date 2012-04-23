@@ -11,6 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 #define BUFLEN 256
 #define MAX_CLIENTS 5
@@ -20,6 +21,20 @@
 using namespace std;
 int sockfd, newsockfd;
 int listen_sockfd;
+
+int fdmax;			//valoare maxima file descriptor din multimea read_fds
+
+fd_set read_fds;	//multimea de citire folosita in select()
+fd_set tmp_fds;		//multime folosita temporar
+
+typedef struct client_
+{
+	string nume;	// Nume client
+	int port;		// Port ascultare
+	struct sockaddr_in adresa;	// Adresa clientului
+}client;
+
+vector<client> clienti;
 
 // Mesaj de eroare
 void error(char *msg)
@@ -66,6 +81,42 @@ void split_string(string str, string& com, string& param1, string& param2)
 		}
 	}
 //	cout << "Split-ui str : ["<<str<<"] in com: ["<<com<<"], param1: ["<<param1<<"] si param2: ["<<param2<<"]\n";
+}
+
+bool parse_quick_reply(char *mesaj, int sock)
+{
+	char buffer[BUFLEN];
+	int n;
+	memset(buffer, 0, BUFLEN);
+	if ((n = recv(sock, buffer, sizeof(buffer), 0)) <= 0)
+	{
+		if (n == 0)
+		{
+			//conexiunea s-a inchis
+			printf("client: when parsing recieved message, socket hung up\n");
+		} else
+		{
+			error((char *)"ERROR in recv");
+		}
+		close(sock);
+		error((char *)"Problem in connection with server. Closing client...");
+	}
+	else
+	{
+		cerr << "Reply-from-srv-BUFFER " << buffer << endl;
+		char comanda[CMDSZ];
+		sscanf(buffer, "%s %*s", comanda);
+		cerr << "Comanda primita: {" << comanda << "}\n";
+
+		if (strcmp(comanda, "info-message-NOTOK") == 0)
+		{
+			cerr << "client: Error clientul " << buffer + strlen("info-message-NOTOK ") << endl;
+			return false;
+		}
+		if (strcmp(comanda, "info-message") == 0)
+			return false;
+	}
+	return false;
 }
 
 // Parsare comanda de la tastatura
@@ -138,17 +189,17 @@ bool parse_command(char *buffer, char *nume)
 		//cerr << "MSGSTR {" << msgstr << "}\n";
 
 		fprintf(stderr, "Am primit comanda message pentru clientul ");
-//		cerr << param1 << " cu mesajul: {" << param2 << "}\n";
+		cerr << param1 << " \n";
 
 //		cerr << "BUFFER-message {" << buffer << "}\n";
 		msgstr.copy(mesaj, msgstr.size() - 1);
 		mesaj[msgstr.size() - 1] = '\0';
-//		cerr << "MESAJ: {" << mesaj << "}\n";
+		cerr << "MESAJ: {" << mesaj << "}\n";
 
 		// Trimit la server un string de forma
 		// "message nume_client_initiator nume_client mesaj"
 		memset(bufsend, 0, BUFLEN);
-		sprintf(bufsend, "message %s %s %s", nume, param1.c_str(), mesaj);
+		sprintf(bufsend, "message %s %s", nume, param1.c_str());
 
 //		cerr << "BUFSEND-message-to-srv {" << bufsend << "}\n";
 
@@ -157,7 +208,7 @@ bool parse_command(char *buffer, char *nume)
 
 		cerr << "client: Am trimis comanda " << bufsend << " catre server\n";
 
-		return true;
+		return parse_quick_reply(mesaj, sockfd);
 	}
 
 	// Comanda "sharefile nume_fisier"
@@ -246,7 +297,8 @@ bool parse_command(char *buffer, char *nume)
 	// TODO Comanda "getfile nume_client nume_fisier"
 	if (com.compare("getfile") == 0)
 	{
-		if (param1.compare("") == 0 || param2.compare("") == 0)
+		if ( (param1.compare("") == 0 || param2.compare("") == 0)
+						|| comanda.compare("getfile") == 0 || comanda.compare("getfile ") == 0)
 		{
 			fprintf(stderr, "Wrong command. Usage: getfile nume_client nume_fisier\n");
 			return false;
@@ -363,10 +415,6 @@ int main(int argc, char *argv[])
 {
 	int i, n, accept_len;
 	struct sockaddr_in serv_addr, listen_addr, accept_addr;
-
-	fd_set read_fds;	//multimea de citire folosita in select()
-	fd_set tmp_fds;		//multime folosita temporar
-	int fdmax;			//valoare maxima file descriptor din multimea read_fds
 
 	char buffer[BUFLEN];
 
@@ -489,6 +537,7 @@ int main(int argc, char *argv[])
 
 				else if (i == sockfd)
 				{
+					// Am primit ceva de la server
 					memset(buffer, 0, BUFLEN);
 					if ((n = recv(sockfd, buffer, sizeof(buffer), 0)) <= 0)
 					{
@@ -501,7 +550,9 @@ int main(int argc, char *argv[])
 							error((char *)"ERROR in recv");
 						}
 						close(sockfd);
-						error((char *)"Problem in connection with server. Closing client...");
+						close(listen_sockfd);
+						cerr << "Server has quit. Closing client...\n";
+						exit(0);
 					}
 					else
 					{
