@@ -114,7 +114,41 @@ bool parse_quick_reply(char *mesaj, int sock)
 			return false;
 		}
 		if (strcmp(comanda, "info-message") == 0)
+		{
+			char nume_client[NAMESZ];
+			char nume[NAMESZ];
+			char ip[NAMESZ];
+			int port;
+			sscanf(buffer, "%*s %s %s %s %d", nume, nume_client, ip, &port);
+//			cerr << "numele-meu: " << nume << " nume client: " << nume_client << " ip: " << ip << " port: " << port << endl;
+
+			// Socket pentru conectare la clientul 2
+			int cli2_sockfd = socket(AF_INET, SOCK_STREAM, 0);
+			if (cli2_sockfd < 0)
+				error((char *)"ERROR opening socket at client connecting to another client");
+
+			struct sockaddr_in client2_addr;
+			memset((char *) &client2_addr, 0, sizeof(client2_addr));
+			client2_addr.sin_family = AF_INET;
+			client2_addr.sin_port = htons(port);
+			inet_aton(ip, &client2_addr.sin_addr);
+
+			// Ma conectez la clientul 2
+			if (connect(cli2_sockfd, (struct sockaddr*) &client2_addr, sizeof(client2_addr)) < 0)
+				error((char *) "ERROR at client connecting to another client");
+
+			memset(buffer, 0, BUFLEN);
+			sprintf(buffer, "text-msg %s %s", nume, mesaj);
+			cerr << "Mesaj de trimis catre clientul 2: {" << buffer << "}\n";
+
+			// Trimit mesaj la clientul 2
+			int n = send(cli2_sockfd, buffer, strlen(buffer), 0);
+				send_verify(n);
+
+			close(cli2_sockfd);
+
 			return false;
+		}
 	}
 	return false;
 }
@@ -174,7 +208,7 @@ bool parse_command(char *buffer, char *nume)
 		return true;
 	}
 
-	// TODO Comanda "message nume_client mesaj"
+	// Comanda "message nume_client mesaj"
 	if (com.compare("message") == 0)
 	{
 		if ( (param1.compare("") == 0 || param2.compare("") == 0)
@@ -411,6 +445,19 @@ void parse_message(int sock)
 	}
 }
 
+void parse_msg_client(char *buffer)
+{
+	char comanda[CMDSZ];
+	char nume[NAMESZ];
+	sscanf(buffer, "%s %*s", comanda);	//TODO
+	if (strcmp(comanda, "text-msg") == 0)
+	{
+		sscanf(buffer, "%*s %s", nume);
+		cout << nume << ": " << buffer + strlen("text-msg ") + strlen(nume) + 1 << endl;
+	}
+
+}
+
 int main(int argc, char *argv[])
 {
 	int i, n, accept_len;
@@ -436,7 +483,7 @@ int main(int argc, char *argv[])
 	inet_aton(argv[2], &serv_addr.sin_addr);
 
 	if (connect(sockfd,(struct sockaddr*) &serv_addr,sizeof(serv_addr)) < 0)
-			error((char *)"ERROR connecting to server");
+		error((char *)"ERROR connecting to server");
 
 		// Socket pentru ascultare conexiuni de la alți clienți
 	listen_sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -613,6 +660,7 @@ int main(int argc, char *argv[])
 					else
 					{ //recv intoarce >0
 						fprintf (stderr, "Am primit de la clientul de pe socketul %d, mesajul: %s\n", i, buffer);
+						parse_msg_client(buffer);
 					}
 				}
 			}
