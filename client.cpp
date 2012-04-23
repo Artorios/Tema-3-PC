@@ -99,6 +99,7 @@ bool parse_quick_reply(char *mesaj, int sock)
 			error((char *)"ERROR in recv");
 		}
 		close(sock);
+		close(listen_sockfd);
 		error((char *)"Problem in connection with server. Closing client...");
 	}
 	else
@@ -146,6 +147,31 @@ bool parse_quick_reply(char *mesaj, int sock)
 				send_verify(n);
 
 			close(cli2_sockfd);
+
+			return false;
+		}
+
+		if ( strcmp(comanda, "getfile_NOTOK") == 0 )
+		{
+			char nume_fis[NAMESZ];
+			char nume_client[NAMESZ];
+			sscanf(buffer, "%*s %s %s", nume_client, nume_fis);
+			cerr << "Fisierul " << nume_fis << " de la clientul " << nume_client << " nu a putut fi gasit\n";
+			return false;
+		}
+
+		if ( strcmp(comanda, "info-getfile") == 0 )
+		{
+			char nume[NAMESZ];
+			char nume_client[NAMESZ];
+			char nume_fis[NAMESZ];
+			char ip[NAMESZ];
+			int port;
+			sscanf(buffer, "%*s %s %s %s %s %d", nume, nume_client, nume_fis, ip, &port);
+			cerr << "Am primit de la server BUFFER: {" << buffer << "}\n";
+			cerr << "Eu: " << nume << " cer " << nume_fis << " de la " << nume_client << " pe portul " << port << endl;
+
+
 
 			return false;
 		}
@@ -339,7 +365,20 @@ bool parse_command(char *buffer, char *nume)
 		}
 		fprintf(stderr, "Am primit comanda getfile pentru clientul ");
 		cerr << param1 << " si fisierul " << param2 << "\n";
-		return true;
+
+		// Trimit catre server cerere de informatii pentru clientul interogat de forma
+		// "getfile nume_client_interogator nume_client_interogat fisier"
+		memset(bufsend, 0, BUFLEN);
+		sprintf(bufsend, "getfile %s %s %s", nume, param1.c_str(), param2.c_str());
+		cerr << "Buffer-de-trimis-la-srv-getfile: {" << bufsend << "}\n";
+
+		int n = send(sockfd, bufsend, strlen(bufsend), 0);
+		send_verify(n);
+
+		char nume_fis[NAMESZ];
+		param2.copy(nume_fis, param2.size(), 0);
+
+		return parse_quick_reply(nume_fis, sockfd);
 	}
 
 	// Comanda "quit"
@@ -449,7 +488,7 @@ void parse_msg_client(char *buffer)
 {
 	char comanda[CMDSZ];
 	char nume[NAMESZ];
-	sscanf(buffer, "%s %*s", comanda);	//TODO
+	sscanf(buffer, "%s %*s", comanda);
 	if (strcmp(comanda, "text-msg") == 0)
 	{
 		sscanf(buffer, "%*s %s", nume);

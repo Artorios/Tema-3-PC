@@ -448,7 +448,7 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		for (unsigned int j = 0; j < clienti[i].shared_files.size(); ++j)
 			ss << " " << clienti[i].shared_files[j];
 
-		cerr << "BUFBUFBUF: " << ss << endl;
+		cerr << "BUFBUFBUF: " << ss.str() << endl;
 		string buf;
 		getline (ss, buf);
 		memset(buffer, 0, BUFLEN);
@@ -458,6 +458,61 @@ void parse_message(char *buffer, char comanda[CMDSZ], int sock, struct sockaddr_
 		int n = send(sock, buffer, strlen(buffer), 0);
 		if (n < 0)
 			 error((char *)"ERROR writing to socket at getshare");
+
+		return;
+	}
+
+	if ( strcmp(comanda, "getfile") == 0 )
+	{
+		cerr << "CMD {" << comanda << "}\n";
+		char nume_client[NAMESZ];
+		char nume_fisier[NAMESZ];
+
+		sscanf(buffer, "%*s %s %s %s", nume, nume_client, nume_fisier);
+		cerr << nume << " vrea fisierul " << nume_fisier << " de la clientul " << nume_client << endl;
+
+		unsigned int i;
+		bool found = false;
+		bool foundfile = false;
+		for (i = 0; i < clienti.size(); ++i)
+		{
+			if ( strcmp(clienti[i].nume.c_str(), nume_client) == 0 )
+			{
+				found = true;
+				break;
+			}
+		}
+		unsigned int j;
+
+		if (found)
+			for (j = 0; j < clienti[i].shared_files.size(); ++j)
+				if ( strcmp(clienti[i].shared_files[j].c_str(), nume_fisier) == 0)
+				{
+					foundfile = true;
+					break;
+				}
+
+		if (!foundfile)
+		{
+			cerr << "Fisierul " << nume_fisier << " nu poate fi gasit\n";
+			// Trimit mesaj inapoi la client mesaj ca nu exista fisierul interogat
+			memset(buffer, 0, BUFLEN);
+			sprintf(buffer, "getfile_NOTOK %s %s", nume_client, nume_fisier);
+			int n = send(sock, buffer, strlen(buffer), 0);
+			if (n < 0)
+				 error((char *)"ERROR writing to socket at getshare");
+
+			return;
+		}
+		// Fisierul cautat exista, trimit inapoi informatiile de conectare la client
+		// Mesaj de forma: "info-message nume_client_care_trimite_msg nume_client_la_care_se_trimite fisier ip port"
+		memset(buffer, 0, BUFLEN);
+		sprintf(buffer, "info-getfile %s %s %s %s %d", nume, nume_client, nume_fisier, inet_ntoa(clienti[i].adresa.sin_addr), clienti[i].port);
+		cerr << "Trimit inapoi la client {" << buffer << "}\n";
+
+		int n = send(sock, buffer, strlen(buffer), 0);
+		if (n < 0)
+			 error((char *)"ERROR writing to socket at message");
 
 		return;
 	}
